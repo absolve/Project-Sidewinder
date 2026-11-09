@@ -1,0 +1,47 @@
+# ============================================================
+# Project-Sidewinder 仓库忽略规则
+# 参考 AwesomeTanks2-godot 的 Godot.gitignore 模板（GDScript 为主）
+# ============================================================
+
+# ---------- Godot 生成物（随时可由编辑器重新生成）----------
+.godot/
+/android/
+/builds/
+build/
+
+# ---------- C# / .NET 构建产物（备用：后续引入 C# 性能热点时生效）----------
+bin/
+obj/
+.mono/
+mono_crash.*.json
+*.dmp
+*.binlog
+TestResults/
+
+# ---------- IDE / 编辑器本地文件 ----------
+.vscode/
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.csproj.user
+*.sln.DotSettings.user
+
+# ---------- Godot 导出配置 ----------
+# export_credentials.cfg 可能含签名口令、部署密钥，不入库；
+# export_presets.cfg 只有导出预设（无口令），需要入库，不忽略。
+export_credentials.cfg
+*.translation
+
+# ---------- 系统杂项 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.local
+
+# ---------- 千万不要忽略 ----------
+# *.uid          Godot 4.4+ 的资源唯一 ID，必须入库（否则引用会重新洗牌）
+# *.import       每个资源的导入设置，入库保证换机器一致
+# *.tres/*.tscn  场景与资源
