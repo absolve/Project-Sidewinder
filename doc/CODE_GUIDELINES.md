@@ -6,7 +6,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 适用项目 | Project-Sidewinder（Godot 4.7，GDScript 为主，GL Compatibility，800×600） |
+| 适用项目 | Project-Sidewinder（Godot 4.7，GDScript 为主，GL Compatibility，1920×1080） |
 | 文档版本 | v1.0 |
 | 更新日期 | 2026-11-09 |
 | 主要依据 | Godot 官方《GDScript style guide》《Static typing in GDScript》+ boxHead-remake 既定约定 |
