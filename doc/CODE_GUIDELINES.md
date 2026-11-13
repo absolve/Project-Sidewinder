@@ -247,17 +247,20 @@ func applyBoost(dir: Vector2, boostSpeed: float) -> void:
 ```gdscript
 ## 统一签名
 func hit(damage: int, attackPos: Vector2 = Vector2.ZERO,
-		knockDir: Vector2 = Vector2.ZERO, ammoType: StringName = &"none") -> void:
+		knockDir: Vector2 = Vector2.ZERO, ammoType: StringName = &"none",
+		damageType: StringName = &"direct") -> void:
 ```
 
-- 后三个参数**必须有默认值**，这样 `obj.hit(100000)` 这类简化调用也能用。
+- 后四个参数**必须有默认值**，这样 `obj.hit(100000)` 这类简化调用也能用。
 - `ammoType` 是**弹药大类**（GAME_DESIGN §4.5：机枪子弹/普通炮弹/能量弹药/建筑弹药），
   用于免疫规则——例如**铁丝网免疫机枪子弹**（§4.3），在 `hit()` 开头判断直接返回。
+- `damageType` 是**伤害来源类型**（GAME_DESIGN §4.2）：`direct` 直击 / `explosion` 爆炸 / `contact` 碰撞，
+  默认 `direct`。用于「绝境防爆」只免疫 `explosion`（§5.5）；与 `ammoType` **正交**，不要混用。
 - `knockDir` 是**击退方向**（世界坐标向量），由调用方给：
   - 炮塔 → 射击方向；爆炸 → `目标位置 - 爆炸位置`；自爆 → 同爆炸。
 - `knockDir == Vector2.ZERO` 表示**不击退**，不用负数当哨兵值。
 - 击退力度由被击方自己算，调用方不用关心。
-- 用不到的参数加下划线前缀（`_knockDir`、`_ammoType`），避免未使用警告。
+- 用不到的参数加下划线前缀（`_knockDir`、`_ammoType`、`_damageType`），避免未使用警告。
 - 新增可受击对象时，直接复制这个签名，不要自创。
 
 ---
@@ -474,6 +477,7 @@ Project-Sidewinder/                  # 仓库根
 | `scenes/weapons/turret_base.tscn` + `scripts/weapons/turret_base.gd` | §4.2 的 18 座炮塔 | §4.2 |
 | `scenes/enemies/enemy_base.tscn` + `scripts/enemies/enemy_base.gd` | 不发射类 / 发射类敌人 | §4.7 |
 | `scenes/objects/destructible_base.tscn` + `scripts/objects/destructible_base.gd` | 砖块墙/铁丝网/哨戒炮/油桶/秘密墙/保险箱 | §4.3 |
+| `scenes/objects/wall_base.tscn` + `scripts/objects/wall_base.gd` | 静态墙段/动画门/能量屏障 | §5.6 |
 | `scenes/projectiles/projectile_base.tscn` + `scripts/projectiles/projectile_base.gd` | 各类子弹/炮弹 | §4.2 |
 
 - **数值差异优先在子场景的 Inspector 或 `data/` 配置表里改**，不要在子脚本里重新赋值。
@@ -531,6 +535,8 @@ add_child(listener)
   逻辑只读数据，不硬编码分支；**数值口径以 `doc/GAME_DESIGN.md` 为准**。
 - 目标：**新增条目只加数据、不改逻辑**（新炮塔 = 新数据行 + 差异行为脚本）。
 - 关卡配置走数据驱动（GAME_DESIGN §5.6 的 `areas[]` / `final_area.has_boss` 等字段）。
+- **静态表格式（已定）**：UTF-8 JSON 放 `data/`，字段与 ID 用 `snake_case`，每份带 `schema_version`；
+  关卡**几何在 `.tscn`、规则在 `data/levels/<id>.json`**，同一场景可配多份关卡数据，不复制地图。
 
 ### 6.6 状态机（本项目约定）
 
@@ -555,12 +561,12 @@ add_child(listener)
 
 ### 6.8 分组与物理层
 
-- 同类对象入组，方便批量查找：`player`、`enemy`、`destructible`、`pickup`。
+- 同类对象入组，方便批量查找：`player`、`enemy`、`destructible`、`pickup`、`wall`。
 - 物理层严格按 `project.godot` 的 `layer_names` 使用，不要凭记忆写数字：
 
 | 位值 | 层 | 名称 | 谁在用 |
 | ---: | ---: | --- | --- |
-| 1 | 1 | wall | 不可破坏边界 |
+| 1 | 1 | wall | 墙/边界（静态墙、动画门、能量屏障） |
 | 2 | 2 | player | 玩家载具 |
 | 4 | 3 | enemy | 敌人本体 |
 | 8 | 4 | projectile | 子弹/炮弹 |
@@ -568,7 +574,24 @@ add_child(listener)
 | 32 | 6 | pickup | 掉落炮塔/资源拾取物 |
 | 64 | 7 | fog | 战争迷雾 |
 
-> 碰撞矩阵细则待设计（GAME_DESIGN §7）；定稿后在本表补「谁 mask 谁」，改层前先查表。
+> 碰撞矩阵已定（GAME_DESIGN §7），下表直接照抄到 Inspector；改层前先查表。
+
+| 对象 | 节点类型 | collision_layer | collision_mask |
+|---|---|---:|---|
+| 墙 / 边界（`wall_base` 实例） | StaticBody2D | 1（wall） | 0 |
+| 玩家载具 | CharacterBody2D | 2（player） | 1 + 4 + 16 = **21** |
+| 敌人本体 | CharacterBody2D | 4（enemy） | 1 + 2 + 16 = **19** |
+| 玩家子弹 | Area2D | 8（projectile） | 1 + 4 + 16 = **21** |
+| 敌方子弹 | Area2D | 8（projectile） | 1 + 2 + 16 = **19** |
+| 可破坏物 | StaticBody2D | 16（destructible） | 0 |
+| 掉落物 / 拾取物 | Area2D | 32（pickup） | 2（player） |
+| 战争迷雾 | Area2D | 64（fog） | 2（player） |
+
+- **敌人之间不做物理碰撞**（mask 不含 enemy），防重叠走多格占位表（GAME_DESIGN §7）。
+- 子弹/拾取/迷雾是 Area2D，靠 `collision_mask` 检测目标层，需 `monitoring = true`。
+- 玩家不碰子弹/拾取/迷雾；子弹不碰子弹/拾取/迷雾。
+- **墙体不是 TileMapLayer**：`Ground` 只放背景；墙统一用 `wall_base.tscn` 实例（层 1）。
+- 动画门/能量屏障的碰撞开关用 `set_deferred("disabled", ...)`，同时同步 `LevelGrid.set_cells_blocked()`；不要用动画轨道直接改 `disabled`。
 
 ### 6.9 国际化
 
